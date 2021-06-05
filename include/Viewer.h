@@ -56,6 +56,10 @@ public:
 
     void Release();
 
+    cv::Mat pos;
+    MapPoint* pNewMP;
+    bool initialized;
+
 private:
 
     bool Stop();

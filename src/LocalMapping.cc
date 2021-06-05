@@ -22,7 +22,9 @@
 #include "LoopClosing.h"
 #include "ORBmatcher.h"
 #include "Optimizer.h"
-
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include<mutex>
 
 namespace ORB_SLAM2
@@ -255,7 +257,6 @@ void LocalMapping::CreateNewMapPoints()
         {
             const float medianDepthKF2 = pKF2->ComputeSceneMedianDepth(2);
             const float ratioBaselineDepth = baseline/medianDepthKF2;
-
             if(ratioBaselineDepth<0.01)
                 continue;
         }

@@ -32,8 +32,8 @@ mutex MapPoint::mGlobalMutex;
 MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
     mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0), mnTrackReferenceForFrame(0),
     mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
-    mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false),
-    mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap)
+    mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false), 
+    bInPicture(false), mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap)
 {
     Pos.copyTo(mWorldPos);
     mNormalVector = cv::Mat::zeros(3,1,CV_32F);
@@ -47,7 +47,7 @@ MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF
     mnFirstKFid(-1), mnFirstFrame(pFrame->mnId), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0),
     mnBALocalForKF(0), mnFuseCandidateForKF(0),mnLoopPointForKF(0), mnCorrectedByKF(0),
     mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(static_cast<KeyFrame*>(NULL)), mnVisible(1),
-    mnFound(1), mbBad(false), mpReplaced(NULL), mpMap(pMap)
+    mnFound(1), mbBad(false), bInPicture(false), mpReplaced(NULL), mpMap(pMap)
 {
     Pos.copyTo(mWorldPos);
     cv::Mat Ow = pFrame->GetCameraCenter();
@@ -150,21 +150,25 @@ int MapPoint::Observations()
 
 void MapPoint::SetBadFlag()
 {
-    map<KeyFrame*,size_t> obs;
-    {
-        unique_lock<mutex> lock1(mMutexFeatures);
-        unique_lock<mutex> lock2(mMutexPos);
-        mbBad=true;
-        obs = mObservations;
-        mObservations.clear();
-    }
-    for(map<KeyFrame*,size_t>::iterator mit=obs.begin(), mend=obs.end(); mit!=mend; mit++)
-    {
-        KeyFrame* pKF = mit->first;
-        pKF->EraseMapPointMatch(mit->second);
-    }
+    if(!this->isInPicture()) {
+        map<KeyFrame*,size_t> obs;
+        {
+            unique_lock<mutex> lock1(mMutexFeatures);
+            unique_lock<mutex> lock2(mMutexPos);
+            mbBad=true;
+            obs = mObservations;
+            mObservations.clear();
+        }
+        for(map<KeyFrame*,size_t>::iterator mit=obs.begin(), mend=obs.end(); mit!=mend; mit++)
+        {
+            KeyFrame* pKF = mit->first;
+            pKF->EraseMapPointMatch(mit->second);
+        }
 
-    mpMap->EraseMapPoint(this);
+        mpMap->EraseMapPoint(this);
+
+    }
+    
 }
 
 MapPoint* MapPoint::GetReplaced()
@@ -197,7 +201,7 @@ void MapPoint::Replace(MapPoint* pMP)
         // Replace measurement in keyframe
         KeyFrame* pKF = mit->first;
 
-        if(!pMP->IsInKeyFrame(pKF))
+        if(!pMP->IsInKeyFrame(pKF) || pMP->isInPicture())
         {
             pKF->ReplaceMapPointMatch(mit->second, pMP);
             pMP->AddObservation(pKF,mit->second);
@@ -220,6 +224,19 @@ bool MapPoint::isBad()
     unique_lock<mutex> lock2(mMutexPos);
     return mbBad;
 }
+
+bool MapPoint::isInPicture()
+{
+    return bInPicture;
+}
+
+
+void MapPoint::lockInPicture()
+{
+    bInPicture = true;
+}
+
+
 
 void MapPoint::IncreaseVisible(int n)
 {

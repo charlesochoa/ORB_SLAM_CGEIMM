@@ -110,6 +110,9 @@ public:
     list<double> mlFrameTimes;
     list<bool> mlbLost;
 
+    
+    KeyFrame* mpLastKeyFrame;
+
     // True if local mapping is deactivated and we are performing only localization
     bool mbOnlyTracking;
 
@@ -202,7 +205,6 @@ protected:
     int mnMatchesInliers;
 
     //Last Frame, KeyFrame and Relocalisation Info
-    KeyFrame* mpLastKeyFrame;
     Frame mLastFrame;
     unsigned int mnLastKeyFrameId;
     unsigned int mnLastRelocFrameId;

@@ -268,43 +268,67 @@ void Frame::UpdatePoseMatrices()
 
 bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
 {
+
+    // 
     pMP->mbTrackInView = false;
 
     // 3D in absolute coordinates
     cv::Mat P = pMP->GetWorldPos(); 
 
+    // 
     // 3D in camera coordinates
+    
+    
+    
     const cv::Mat Pc = mRcw*P+mtcw;
+    
+    // 
     const float &PcX = Pc.at<float>(0);
     const float &PcY= Pc.at<float>(1);
     const float &PcZ = Pc.at<float>(2);
+    
+    
+    
 
+    // 
     // Check positive depth
     if(PcZ<0.0f)
         return false;
 
+    // 
     // Project in image and check it is not outside
     const float invz = 1.0f/PcZ;
     const float u=fx*PcX*invz+cx;
     const float v=fy*PcY*invz+cy;
+    
+    
+    
 
+    // 
     if(u<mnMinX || u>mnMaxX)
         return false;
     if(v<mnMinY || v>mnMaxY)
         return false;
 
+    
     // Check distance is in the scale invariance region of the MapPoint
     const float maxDistance = pMP->GetMaxDistanceInvariance();
+
+    
     const float minDistance = pMP->GetMinDistanceInvariance();
+
+    
     const cv::Mat PO = P-mOw;
     const float dist = cv::norm(PO);
 
+    
     if(dist<minDistance || dist>maxDistance)
         return false;
 
    // Check viewing angle
     cv::Mat Pn = pMP->GetNormal();
 
+    
     const float viewCos = PO.dot(Pn)/dist;
 
     if(viewCos<viewingCosLimit)
@@ -313,11 +337,95 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     // Predict scale in the image
     const int nPredictedLevel = pMP->PredictScale(dist,this);
 
+    
     // Data used by the tracking
     pMP->mbTrackInView = true;
     pMP->mTrackProjX = u;
     pMP->mTrackProjXR = u - mbf*invz;
     pMP->mTrackProjY = v;
+    pMP->mnTrackScaleLevel= nPredictedLevel;
+    pMP->mTrackViewCos = viewCos;
+
+    return true;
+}
+
+bool Frame::isInFrustumPrint(MapPoint *pMP, float viewingCosLimit)
+{
+
+    // 
+    pMP->mbTrackInView = true;
+
+    // 3D in absolute coordinates
+    cv::Mat P = pMP->GetWorldPos(); 
+
+    // 
+    // 3D in camera coordinates
+    
+    
+    
+    const cv::Mat Pc = mRcw*P+mtcw;
+    
+    // 
+    const float &PcX = Pc.at<float>(0);
+    const float &PcY= Pc.at<float>(1);
+    const float &PcZ = Pc.at<float>(2);
+    
+    
+    
+
+    // 
+    // Check positive depth
+    if(PcZ<0.0f)
+        pMP->mbTrackInView = false;
+
+    // 
+    // Project in image and check it is not outside
+    const float invz = 1.0f/PcZ;
+    const float u=fx*PcX*invz+cx;
+    const float v=fy*PcY*invz+cy;
+    
+    
+    
+
+    // 
+    // if(u<mnMinX || u>mnMaxX)
+    //     pMP->mbTrackInView = false;
+    // if(v<mnMinY || v>mnMaxY)
+    //     pMP->mbTrackInView = false;
+
+    
+    // Check distance is in the scale invariance region of the MapPoint
+    const float maxDistance = pMP->GetMaxDistanceInvariance();
+
+    
+    const float minDistance = pMP->GetMinDistanceInvariance();
+
+    
+    const cv::Mat PO = P-mOw;
+    const float dist = cv::norm(PO);
+
+    
+    // if(dist<minDistance || dist>maxDistance)
+    //     pMP->mbTrackInView = false;
+
+   // Check viewing angle
+    cv::Mat Pn = pMP->GetNormal();
+
+    
+    const float viewCos = PO.dot(Pn)/dist;
+
+    // if(viewCos<viewingCosLimit)
+    //     pMP->mbTrackInView = false;
+
+    // Predict scale in the image
+    const int nPredictedLevel = pMP->PredictScale(dist,this);
+
+    
+    // cout << "After entering PredictScale() " <<  "\n";
+    // Data used by the tracking
+    pMP->mTrackProjX = pMP->mTrackProjX*0.2 + u*0.8;
+    pMP->mTrackProjXR = u - mbf*invz;
+    pMP->mTrackProjY = pMP->mTrackProjY*0.2 + v*0.8;
     pMP->mnTrackScaleLevel= nPredictedLevel;
     pMP->mTrackViewCos = viewCos;
 
@@ -375,7 +483,6 @@ vector<size_t> Frame::GetFeaturesInArea(const float &x, const float  &y, const f
             }
         }
     }
-
     return vIndices;
 }
 

@@ -59,6 +59,8 @@ public:
 
     void SetBadFlag();
     bool isBad();
+    bool isInPicture();
+    void lockInPicture();
 
     void Replace(MapPoint* pMP);    
     MapPoint* GetReplaced();
@@ -93,6 +95,7 @@ public:
     float mTrackProjY;
     float mTrackProjXR;
     bool mbTrackInView;
+    bool myPoint;
     int mnTrackScaleLevel;
     float mTrackViewCos;
     long unsigned int mnTrackReferenceForFrame;
@@ -135,6 +138,10 @@ protected:
 
      // Bad flag (we do not currently erase MapPoint from memory)
      bool mbBad;
+
+     //Bypass conditionals to always draw point. Used to draw pictures in scene
+     bool bInPicture; 
+
      MapPoint* mpReplaced;
 
      // Scale invariance distances

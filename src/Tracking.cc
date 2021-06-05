@@ -29,7 +29,9 @@
 #include"Converter.h"
 #include"Map.h"
 #include"Initializer.h"
-
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include"Optimizer.h"
 #include"PnPsolver.h"
 
@@ -55,6 +57,8 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     float fy = fSettings["Camera.fy"];
     float cx = fSettings["Camera.cx"];
     float cy = fSettings["Camera.cy"];
+
+    
 
     cv::Mat K = cv::Mat::eye(3,3,CV_32F);
     K.at<float>(0,0) = fx;
@@ -899,6 +903,19 @@ bool Tracking::TrackWithMotionModel()
 
     // Discard outliers
     int nmatchesMap = 0;
+    if ( mCurrentFrame.N > 3 && mCurrentFrame.mvpMapPoints[3]) 
+    {
+
+    //  cout << "mTrackProjX: " << mCurrentFrame.mvpMapPoints[3]->mTrackProjX <<  "\n";
+    //  cout << "GetWorldPos: " << mCurrentFrame.mvpMapPoints[3]->GetWorldPos() <<  "\n";
+    //  cout << "mTrackProjy: " << mCurrentFrame.mvpMapPoints[3]->mTrackProjY <<  "\n";
+    //  cout << "mTrackProjXR: " << mCurrentFrame.mvpMapPoints[3]->mTrackProjXR <<  "\n";
+    //  cout << "mbTrackInView: " << mCurrentFrame.mvpMapPoints[3]->mbTrackInView <<  "\n";
+    //  cout << "mnTrackScaleLevel: " << mCurrentFrame.mvpMapPoints[3]->mnTrackScaleLevel <<  "\n";
+    //  cout << "mTrackViewCos: " << mCurrentFrame.mvpMapPoints[3]->mTrackViewCos <<  "\n";
+    //  cout << "mnTrackReferenceForFrame: " << mCurrentFrame.mvpMapPoints[3]->mnTrackReferenceForFrame <<  "\n";
+    //  cout << "mnLastFrameSeen: " << mCurrentFrame.mvpMapPoints[3]->mnLastFrameSeen <<  "\n\n\n";
+    }
     for(int i =0; i<mCurrentFrame.N; i++)
     {
         if(mCurrentFrame.mvpMapPoints[i])
@@ -1148,7 +1165,7 @@ void Tracking::SearchLocalPoints()
         MapPoint* pMP = *vit;
         if(pMP)
         {
-            if(pMP->isBad())
+            if(pMP->isBad() && !pMP->isInPicture())
             {
                 *vit = static_cast<MapPoint*>(NULL);
             }
@@ -1169,10 +1186,10 @@ void Tracking::SearchLocalPoints()
         MapPoint* pMP = *vit;
         if(pMP->mnLastFrameSeen == mCurrentFrame.mnId)
             continue;
-        if(pMP->isBad())
+        if(pMP->isBad() && !pMP->isInPicture())
             continue;
         // Project (this fills MapPoint variables for matching)
-        if(mCurrentFrame.isInFrustum(pMP,0.5))
+        if(mCurrentFrame.isInFrustum(pMP,0.5) || pMP->isInPicture())
         {
             pMP->IncreaseVisible();
             nToMatch++;

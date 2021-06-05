@@ -20,7 +20,9 @@
 
 #include "Viewer.h"
 #include <pangolin/pangolin.h>
-
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <mutex>
 
 namespace ORB_SLAM2
@@ -31,11 +33,11 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
     mbFinishRequested(false), mbFinished(true), mbStopped(true), mbStopRequested(false)
 {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
-
     float fps = fSettings["Camera.fps"];
     if(fps<1)
         fps=30;
     mT = 1e3/fps;
+    initialized = false;
 
     mImageWidth = fSettings["Camera.width"];
     mImageHeight = fSettings["Camera.height"];
@@ -67,10 +69,10 @@ void Viewer::Run()
 
     pangolin::CreatePanel("menu").SetBounds(0.0,1.0,0.0,pangolin::Attach::Pix(175));
     pangolin::Var<bool> menuFollowCamera("menu.Follow Camera",true,true);
-    pangolin::Var<bool> menuShowPoints("menu.Show Points",true,true);
+    pangolin::Var<bool> menuShowPoints("menu.Show Points",false,false);
     pangolin::Var<bool> menuShowKeyFrames("menu.Show KeyFrames",true,true);
-    pangolin::Var<bool> menuShowGraph("menu.Show Graph",true,true);
-    pangolin::Var<bool> menuLocalizationMode("menu.Localization Mode",false,true);
+    pangolin::Var<bool> menuShowGraph("menu.Show Graph",false,false);
+    pangolin::Var<bool> menuLocalizationMode("menu.Localization Mode",false,false);
     pangolin::Var<bool> menuReset("menu.Reset",false,false);
 
     // Define Camera Render Object (for view / scene browsing)
@@ -133,8 +135,41 @@ void Viewer::Run()
             mpMapDrawer->DrawMapPoints();
 
         pangolin::FinishFrame();
+        
+        KeyFrame* pKF = mpTracker->mpLastKeyFrame;
+        cv::Mat im;
+        if(pKF>0 || initialized){
+            if(!initialized) {
+                pNewMP = *(pKF->GetMapPoints().begin());
+                pNewMP->lockInPicture();
+                initialized = true;
 
-        cv::Mat im = mpFrameDrawer->DrawFrame();
+            }  
+            
+            Frame pF= Frame(mpTracker->mCurrentFrame);
+            cv::Mat tcw2 = mpTracker->mCurrentFrame.mTcw;
+            if(!tcw2.empty()) {
+                pF.SetPose(mpTracker->mCurrentFrame.mTcw);
+                pF.isInFrustumPrint(pNewMP, 0.5);
+            } 
+
+            // cout << "pKF->GetPose(): " << pKF->GetPose() <<  "\n";
+            // bool inView = pF.isInFrustumPrint(pNewMP, 0.5);
+            // cout << "mTrackProjX: " << pNewMP->mTrackProjX <<  "\n";
+            // cout << "GetWorldPos: " << pNewMP->GetWorldPos() <<  "\n";
+            // cout << "mTrackProjY: " << pNewMP->mTrackProjY <<  "\n";
+            // cout << "mTrackProjXR: " << pNewMP->mTrackProjXR <<  "\n";
+            // cout << "mbTrackInView: " << pNewMP->mbTrackInView <<  "\n";
+            // cout << "mnTrackScaleLevel: " << pNewMP->mnTrackScaleLevel <<  "\n";
+            // cout << "mTrackViewCos: " << pNewMP->mTrackViewCos <<  "\n";
+            // cout << "mnTrackReferenceForFrame: " << pNewMP->mnTrackReferenceForFrame <<  "\n";
+            // cout << "mnLastFrameSeen: " << pNewMP->mnLastFrameSeen <<  "\n\n\n";
+            im = mpFrameDrawer->CustomDrawFrame(pNewMP);
+        } else {
+            im = mpFrameDrawer->DrawFrame();
+
+        }
+
         cv::imshow("ORB-SLAM2: Current Frame",im);
         cv::waitKey(mT);
 

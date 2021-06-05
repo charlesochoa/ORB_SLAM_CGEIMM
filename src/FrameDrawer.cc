@@ -42,6 +42,7 @@ cv::Mat FrameDrawer::DrawFrame()
     vector<int> vMatches; // Initialization: correspondeces with reference keypoints
     vector<cv::KeyPoint> vCurrentKeys; // KeyPoints in current frame
     vector<bool> vbVO, vbMap; // Tracked MapPoints in current frame
+    vector<MapPoint *> vpMP;
     int state; // Tracking state
 
     //Copy variables within scoped mutex
@@ -64,6 +65,7 @@ cv::Mat FrameDrawer::DrawFrame()
             vCurrentKeys = mvCurrentKeys;
             vbVO = mvbVO;
             vbMap = mvbMap;
+            vpMP = mvpMP;
         }
         else if(mState==Tracking::LOST)
         {
@@ -103,10 +105,24 @@ cv::Mat FrameDrawer::DrawFrame()
                 pt2.y=vCurrentKeys[i].pt.y+r;
 
                 // This is a match to a MapPoint in the map
-                if(vbMap[i])
+                if(vbMap[i] )
                 {
-                    cv::rectangle(im,pt1,pt2,cv::Scalar(0,255,0));
-                    cv::circle(im,vCurrentKeys[i].pt,2,cv::Scalar(0,255,0),-1);
+                    cv::Mat mp = vpMP[i]->GetWorldPos();
+                    // pos.at<float>(0),pos.at<float>(1),pos.at<float>(2)
+                    if (mp.at<float>(0) > 0.0 && mp.at<float>(0) < 1.5 && 
+                        mp.at<float>(1) > 0.0 && mp.at<float>(1) < 1.5 && 
+                        mp.at<float>(2) > 0.0 && mp.at<float>(2) < 1.5) 
+                    {
+                        cv::rectangle(im,pt1,pt2,cv::Scalar(0,0,255));
+                        cv::circle(im,vCurrentKeys[i].pt,2,cv::Scalar(0,0,255),-1);
+                        cv::putText(im, to_string(vpMP[i]->mnId), pt1, 1, 1.0,cv::Scalar(0,0,0));
+
+                    } else 
+                    {
+                        cv::rectangle(im,pt1,pt2,cv::Scalar(0,255,0));
+                        cv::circle(im,vCurrentKeys[i].pt,2,cv::Scalar(0,255,0),-1);
+                        cv::putText(im, to_string(vpMP[i]->mnId), pt1, 1, 1.0,cv::Scalar(0,0,0));
+                    }
                     mnTracked++;
                 }
                 else // This is match to a "visual odometry" MapPoint created in the last frame
@@ -126,6 +142,77 @@ cv::Mat FrameDrawer::DrawFrame()
 }
 
 
+cv::Mat FrameDrawer::CustomDrawFrame(MapPoint * pMP)
+{
+    cv::Mat im;
+    vector<cv::KeyPoint> vIniKeys; // Initialization: KeyPoints in reference frame
+    vector<int> vMatches; // Initialization: correspondeces with reference keypoints
+    vector<cv::KeyPoint> vCurrentKeys; // KeyPoints in current frame
+    vector<bool> vbVO, vbMap; // Tracked MapPoints in current frame
+    vector<MapPoint *> vpMP;
+    int state; // Tracking state
+
+    //Copy variables within scoped mutex
+    {
+        unique_lock<mutex> lock(mMutex);
+        state=mState;
+        if(mState==Tracking::SYSTEM_NOT_READY)
+            mState=Tracking::NO_IMAGES_YET;
+
+        mIm.copyTo(im);
+
+        if(mState==Tracking::NOT_INITIALIZED)
+        {
+            vCurrentKeys = mvCurrentKeys;
+            vIniKeys = mvIniKeys;
+            vMatches = mvIniMatches;
+        }
+        else if(mState==Tracking::OK)
+        {
+            vCurrentKeys = mvCurrentKeys;
+            vbVO = mvbVO;
+            vbMap = mvbMap;
+            vpMP = mvpMP;
+        }
+        else if(mState==Tracking::LOST)
+        {
+            vCurrentKeys = mvCurrentKeys;
+        }
+    } // destroy scoped mutex -> release mutex
+
+    if(im.channels()<3) //this should be always true
+        cvtColor(im,im,CV_GRAY2BGR);
+
+    const float r = 5;
+    cv::Point2f pt1,pt2, center;
+    // cout << "mTrackProjX: " << pMP->mTrackProjX <<  "\n";
+    // cv::Mat mp = pMP->GetWorldPos();
+    // cout << "/'''''''''''''''''''" <<  "\n";
+    // cout <<  "X: " << mp.at<float>(0) <<  "\n";
+    // cout <<  "Y: " << mp.at<float>(1) <<  "\n";
+    // cout <<  "Z: " << mp.at<float>(2) <<  "\n";
+    // cout << "\\,,,,,,,,,,,,,,,,,," <<  "\n\n\n";
+    // cout << "mTrackProjX: " << pMP->mTrackProjX <<  "\n";
+    pt1.x=pMP->mTrackProjX-r;
+    pt1.y=pMP->mTrackProjY-r;
+    pt2.x=pMP->mTrackProjX+r;
+    pt2.y=pMP->mTrackProjY+r;
+    center.x=pMP->mTrackProjX;
+    center.y=pMP->mTrackProjY;
+    if(pMP->mbTrackInView) {
+        cv::rectangle(im,pt1,pt2,cv::Scalar(0,0,255));
+        cv::circle(im,center,2,cv::Scalar(0,0,255),-1);
+        cv::putText(im, to_string(pMP->mnId), pt1, 1, 1.0,cv::Scalar(0,0,0));
+
+    }
+    
+
+    cv::Mat imWithInfo;
+    DrawTextInfo(im,state, imWithInfo);
+
+    return imWithInfo;
+}
+
 void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
 {
     stringstream s;
@@ -141,6 +228,7 @@ void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
             s << "LOCALIZATION | ";
         int nKFs = mpMap->KeyFramesInMap();
         int nMPs = mpMap->MapPointsInMap();
+        
         s << "KFs: " << nKFs << ", MPs: " << nMPs << ", Matches: " << mnTracked;
         if(mnTrackedVO>0)
             s << ", + VO matches: " << mnTrackedVO;
@@ -172,6 +260,7 @@ void FrameDrawer::Update(Tracking *pTracker)
     N = mvCurrentKeys.size();
     mvbVO = vector<bool>(N,false);
     mvbMap = vector<bool>(N,false);
+    mvpMP = vector<MapPoint *>(N,NULL);
     mbOnlyTracking = pTracker->mbOnlyTracking;
 
 
@@ -189,10 +278,15 @@ void FrameDrawer::Update(Tracking *pTracker)
             {
                 if(!pTracker->mCurrentFrame.mvbOutlier[i])
                 {
-                    if(pMP->Observations()>0)
+                    if(pMP->Observations()>0) 
+                    {
                         mvbMap[i]=true;
+                        mvpMP[i]= pMP;
+                    }
                     else
+                    {
                         mvbVO[i]=true;
+                    }
                 }
             }
         }
