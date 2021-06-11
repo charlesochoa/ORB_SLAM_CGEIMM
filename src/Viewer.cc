@@ -57,6 +57,7 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
 bool compareMapPointsLex(MapPoint * a, MapPoint *b) {
     cv::Mat mA = a->GetWorldPos();
     cv::Mat mB = b->GetWorldPos();
+    // return a > b;
     return  ( mA.at<float>(0) >  mB.at<float>(0)) ||  
             ( mA.at<float>(0) == mB.at<float>(0) && mA.at<float>(1) >  mB.at<float>(1)) ||   
             ( mA.at<float>(0) == mB.at<float>(0) && mA.at<float>(1) == mB.at<float>(1) && mA.at<float>(2) > mB.at<float>(2)) ;
@@ -64,7 +65,18 @@ bool compareMapPointsLex(MapPoint * a, MapPoint *b) {
 
 
 void Viewer::FillVectorWithFigure() {
-    std::sort(vpMP.begin(), vpMP.end(), compareMapPointsLex);
+    // for (unsigned int i = 0; i < vpMP.size(); i++)
+    // {
+    //     if(vpMP[i] > 0) {
+    //         cout << "Hay elemento: " << i << " " << vpMP[i]->GetWorldPos();
+
+    //     } else {
+    //         cout << "No hay elemento " << i;
+    //     }
+    // }
+    // cout << "\n\n\n";
+    // MapPoint vector<MapPoint*>::iterator first= vpMP.begin();
+    std::sort(vpMP.begin(), vpMP.begin()+ 2, compareMapPointsLex);
     cv::Mat posA = vpMP[0]->GetWorldPos();
     cv::Mat posB = vpMP[1]->GetWorldPos();
     cv::Mat posC = vpMP[2]->GetWorldPos(); 
@@ -167,50 +179,53 @@ void Viewer::Run()
         
         KeyFrame* pKF = mpTracker->mpLastKeyFrame;
         cv::Mat im;
-        if(pKF>0){
-            if(!initialized) {
+        if(pKF>0 && !initialized){
 
-                int i = 0;                
-                for(set<MapPoint*>::iterator vit=pKF->GetMapPoints().begin(), vend= pKF->GetMapPoints().end(); vit!=vend; vit++) {
-                    vpMP[i] = *vit;
-                    i+= 1;
-                    if (i==n-1) {
-                        initialized = true;
-                        for(i=0; i<n-1; i++) {
-                            vpMP[i]->lockInPicture();
-                        }
-                        break;
+            int i = 0;                
+            for(set<MapPoint*>::iterator vit=pKF->GetMapPoints().begin(), vend= pKF->GetMapPoints().end(); vit!=vend; vit++) {
+                vpMP[i] = *vit;
+                i+= 1;
+                if (i==n-1) {
+                    initialized = true;
+                    for(i=0; i<n-1; i++) {
+                        vpMP[i]->lockInPicture();
                     }
+
+                    FillVectorWithFigure();
+                    break;
                 }
-            }  
+            }
         }
+
         if(initialized) {
-            FillVectorWithFigure();
             Frame pF= Frame(mpTracker->mCurrentFrame);
             cv::Mat tcw2 = mpTracker->mCurrentFrame.mTcw;
             if(!tcw2.empty()) {
                 pF.SetPose(mpTracker->mCurrentFrame.mTcw);
                 for (int i = 0; i < n; i++) {
-                    pF.isInFrustumCustom(vpMP[i], 0.5);
+                    if (vpMP[i] > 0) {
+                        pF.isInFrustumCustom(vpMP[i], 0.5);
+                    }
+                    
                 }
-            } 
+            }
 
-            // cout << "pKF->GetPose(): " << pKF->GetPose() <<  "\n";
-            // bool inView = pF.isInFrustumPrint(pNewMP, 0.5);
-            // cout << "mTrackProjX: " << pNewMP->mTrackProjX <<  "\n";
-            // cout << "GetWorldPos: " << pNewMP->GetWorldPos() <<  "\n";
-            // cout << "mTrackProjY: " << pNewMP->mTrackProjY <<  "\n";
-            // cout << "mTrackProjXR: " << pNewMP->mTrackProjXR <<  "\n";
-            // cout << "mbTrackInView: " << pNewMP->mbTrackInView <<  "\n";
-            // cout << "mnTrackScaleLevel: " << pNewMP->mnTrackScaleLevel <<  "\n";
-            // cout << "mTrackViewCos: " << pNewMP->mTrackViewCos <<  "\n";
-            // cout << "mnTrackReferenceForFrame: " << pNewMP->mnTrackReferenceForFrame <<  "\n";
-            // cout << "mnLastFrameSeen: " << pNewMP->mnLastFrameSeen <<  "\n\n\n";
-            im = mpFrameDrawer->CustomDrawFrame(vpMP);
-        } else {
+        //     // cout << "pKF->GetPose(): " << pKF->GetPose() <<  "\n";
+        //     // bool inView = pF.isInFrustumPrint(pNewMP, 0.5);
+        //     // cout << "mTrackProjX: " << pNewMP->mTrackProjX <<  "\n";
+        //     // cout << "GetWorldPos: " << pNewMP->GetWorldPos() <<  "\n";
+        //     // cout << "mTrackProjY: " << pNewMP->mTrackProjY <<  "\n";
+        //     // cout << "mTrackProjXR: " << pNewMP->mTrackProjXR <<  "\n";
+        //     // cout << "mbTrackInView: " << pNewMP->mbTrackInView <<  "\n";
+        //     // cout << "mnTrackScaleLevel: " << pNewMP->mnTrackScaleLevel <<  "\n";
+        //     // cout << "mTrackViewCos: " << pNewMP->mTrackViewCos <<  "\n";
+        //     // cout << "mnTrackReferenceForFrame: " << pNewMP->mnTrackReferenceForFrame <<  "\n";
+        //     // cout << "mnLastFrameSeen: " << pNewMP->mnLastFrameSeen <<  "\n\n\n";
+             im = mpFrameDrawer->CustomDrawFrame(vpMP);
+        }  else {
             im = mpFrameDrawer->DrawFrame();
 
-        }
+         }
 
         cv::imshow("ORB-SLAM2: Current Frame",im);
         cv::waitKey(mT);
