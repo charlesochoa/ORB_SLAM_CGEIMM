@@ -48,7 +48,7 @@ public:
     // Draw last processed frame.
     cv::Mat DrawFrame();
 
-    cv::Mat CustomDrawFrame(MapPoint * pMP);
+    cv::Mat CustomDrawFrame(vector<MapPoint *> vpMP);
 
 protected:
 

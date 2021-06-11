@@ -86,7 +86,7 @@ cv::Mat FrameDrawer::DrawFrame()
                 cv::line(im,vIniKeys[i].pt,vCurrentKeys[vMatches[i]].pt,
                         cv::Scalar(0,255,0));
             }
-        }        
+        }
     }
     else if(state==Tracking::OK) //TRACKING
     {
@@ -142,14 +142,24 @@ cv::Mat FrameDrawer::DrawFrame()
 }
 
 
-cv::Mat FrameDrawer::CustomDrawFrame(MapPoint * pMP)
+void DrawLine(cv::Mat &im, MapPoint* mp1, MapPoint* mp2, cv::Scalar color) {
+
+    cv::Point2f pt1,pt2;
+    pt1.x=mp1->mTrackProjX;
+    pt1.y=mp1->mTrackProjY;
+    pt2.x=mp2->mTrackProjX;
+    pt2.y=mp2->mTrackProjY;
+    cv::line(im,pt1,pt2,color);
+
+}
+
+cv::Mat FrameDrawer::CustomDrawFrame(vector<MapPoint *> vpMP)
 {
     cv::Mat im;
     vector<cv::KeyPoint> vIniKeys; // Initialization: KeyPoints in reference frame
     vector<int> vMatches; // Initialization: correspondeces with reference keypoints
     vector<cv::KeyPoint> vCurrentKeys; // KeyPoints in current frame
     vector<bool> vbVO, vbMap; // Tracked MapPoints in current frame
-    vector<MapPoint *> vpMP;
     int state; // Tracking state
 
     //Copy variables within scoped mutex
@@ -161,51 +171,38 @@ cv::Mat FrameDrawer::CustomDrawFrame(MapPoint * pMP)
 
         mIm.copyTo(im);
 
-        if(mState==Tracking::NOT_INITIALIZED)
-        {
-            vCurrentKeys = mvCurrentKeys;
-            vIniKeys = mvIniKeys;
-            vMatches = mvIniMatches;
-        }
-        else if(mState==Tracking::OK)
-        {
-            vCurrentKeys = mvCurrentKeys;
-            vbVO = mvbVO;
-            vbMap = mvbMap;
-            vpMP = mvpMP;
-        }
-        else if(mState==Tracking::LOST)
-        {
-            vCurrentKeys = mvCurrentKeys;
-        }
     } // destroy scoped mutex -> release mutex
 
     if(im.channels()<3) //this should be always true
         cvtColor(im,im,CV_GRAY2BGR);
 
-    const float r = 5;
-    cv::Point2f pt1,pt2, center;
-    // cout << "mTrackProjX: " << pMP->mTrackProjX <<  "\n";
-    // cv::Mat mp = pMP->GetWorldPos();
-    // cout << "/'''''''''''''''''''" <<  "\n";
-    // cout <<  "X: " << mp.at<float>(0) <<  "\n";
-    // cout <<  "Y: " << mp.at<float>(1) <<  "\n";
-    // cout <<  "Z: " << mp.at<float>(2) <<  "\n";
-    // cout << "\\,,,,,,,,,,,,,,,,,," <<  "\n\n\n";
-    // cout << "mTrackProjX: " << pMP->mTrackProjX <<  "\n";
-    pt1.x=pMP->mTrackProjX-r;
-    pt1.y=pMP->mTrackProjY-r;
-    pt2.x=pMP->mTrackProjX+r;
-    pt2.y=pMP->mTrackProjY+r;
-    center.x=pMP->mTrackProjX;
-    center.y=pMP->mTrackProjY;
-    if(pMP->mbTrackInView) {
-        cv::rectangle(im,pt1,pt2,cv::Scalar(0,0,255));
-        cv::circle(im,center,2,cv::Scalar(0,0,255),-1);
-        cv::putText(im, to_string(pMP->mnId), pt1, 1, 1.0,cv::Scalar(0,0,0));
 
-    }
+
+    const int n = vpMP.size();
+    // for(int i=0;i<n;i++)
+    // {
     
+    //     cv::Point2f pt1,pt2, center;
+    //     pt1.x=vpMP[i]->mTrackProjX-r;
+    //     pt1.y=vpMP[i]->mTrackProjY-r;
+    //     pt2.x=vpMP[i]->mTrackProjX+r;
+    //     pt2.y=vpMP[i]->mTrackProjY+r;
+    //     center.x=vpMP[i]->mTrackProjX;
+    //     center.y=vpMP[i]->mTrackProjY;
+    //     if(vpMP[i]->mbTrackInView) {
+    //         cv::rectangle(im,pt1,pt2,cv::Scalar(0,0,255));
+    //         cv::circle(im,center,2,cv::Scalar(0,0,255),-1);
+    //         cv::putText(im, to_string(vpMP[i]->mnId), pt1, 1, 1.0,cv::Scalar(0,0,0));
+
+    //     }
+
+    // }  
+    DrawLine(im, vpMP[3], vpMP[0], cv::Scalar(0,0,255));
+    DrawLine(im, vpMP[3], vpMP[1], cv::Scalar(0,255,0));
+    DrawLine(im, vpMP[3], vpMP[2], cv::Scalar(255,0,0));
+    DrawLine(im, vpMP[0], vpMP[1], cv::Scalar(0,0,0));
+    DrawLine(im, vpMP[1], vpMP[2], cv::Scalar(0,0,0));
+    DrawLine(im, vpMP[2], vpMP[0], cv::Scalar(0,0,0));
 
     cv::Mat imWithInfo;
     DrawTextInfo(im,state, imWithInfo);

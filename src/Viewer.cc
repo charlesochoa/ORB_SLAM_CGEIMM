@@ -51,13 +51,42 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
     mViewpointY = fSettings["Viewer.ViewpointY"];
     mViewpointZ = fSettings["Viewer.ViewpointZ"];
     mViewpointF = fSettings["Viewer.ViewpointF"];
+
+}
+
+bool compareMapPointsLex(MapPoint * a, MapPoint *b) {
+    cv::Mat mA = a->GetWorldPos();
+    cv::Mat mB = b->GetWorldPos();
+    return  ( mA.at<float>(0) >  mB.at<float>(0)) ||  
+            ( mA.at<float>(0) == mB.at<float>(0) && mA.at<float>(1) >  mB.at<float>(1)) ||   
+            ( mA.at<float>(0) == mB.at<float>(0) && mA.at<float>(1) == mB.at<float>(1) && mA.at<float>(2) > mB.at<float>(2)) ;
+}
+
+
+void Viewer::FillVectorWithFigure() {
+    std::sort(vpMP.begin(), vpMP.end(), compareMapPointsLex);
+    cv::Mat posA = vpMP[0]->GetWorldPos();
+    cv::Mat posB = vpMP[1]->GetWorldPos();
+    cv::Mat posC = vpMP[2]->GetWorldPos(); 
+    cv::Mat vectorBA = posA - posB;
+    cv::Mat vectorBC = posC - posB;
+
+    cv::Mat normal = vectorBC.cross(vectorBA);
+    cv::Mat baricenter(3,1,CV_32F);
+    baricenter.at<float>(0)=(posA.at<float>(0) + posB.at<float>(0) + posC.at<float>(0))/3.0;
+    baricenter.at<float>(1)=(posA.at<float>(1) + posB.at<float>(1) + posC.at<float>(1))/3.0;
+    baricenter.at<float>(2)=(posA.at<float>(2) + posB.at<float>(2) + posC.at<float>(2))/3.0;
+    cv::Mat posD = baricenter + normal;
+    vpMP[3] = new MapPoint(posD);
+    vpMP[3]->lockInPicture();
 }
 
 void Viewer::Run()
 {
     mbFinished = false;
     mbStopped = false;
-
+    int n = 4;
+    vpMP = vector<MapPoint*>(n,static_cast<MapPoint*>(NULL));
     pangolin::CreateWindowAndBind("ORB-SLAM2: Map Viewer",1024,768);
 
     // 3D Mouse handler requires depth testing to be enabled
@@ -138,19 +167,32 @@ void Viewer::Run()
         
         KeyFrame* pKF = mpTracker->mpLastKeyFrame;
         cv::Mat im;
-        if(pKF>0 || initialized){
+        if(pKF>0){
             if(!initialized) {
-                pNewMP = *(pKF->GetMapPoints().begin());
-                pNewMP->lockInPicture();
-                initialized = true;
 
+                int i = 0;                
+                for(set<MapPoint*>::iterator vit=pKF->GetMapPoints().begin(), vend= pKF->GetMapPoints().end(); vit!=vend; vit++) {
+                    vpMP[i] = *vit;
+                    i+= 1;
+                    if (i==n-1) {
+                        initialized = true;
+                        for(i=0; i<n-1; i++) {
+                            vpMP[i]->lockInPicture();
+                        }
+                        break;
+                    }
+                }
             }  
-            
+        }
+        if(initialized) {
+            FillVectorWithFigure();
             Frame pF= Frame(mpTracker->mCurrentFrame);
             cv::Mat tcw2 = mpTracker->mCurrentFrame.mTcw;
             if(!tcw2.empty()) {
                 pF.SetPose(mpTracker->mCurrentFrame.mTcw);
-                pF.isInFrustumPrint(pNewMP, 0.5);
+                for (int i = 0; i < n; i++) {
+                    pF.isInFrustumCustom(vpMP[i], 0.5);
+                }
             } 
 
             // cout << "pKF->GetPose(): " << pKF->GetPose() <<  "\n";
@@ -164,7 +206,7 @@ void Viewer::Run()
             // cout << "mTrackViewCos: " << pNewMP->mTrackViewCos <<  "\n";
             // cout << "mnTrackReferenceForFrame: " << pNewMP->mnTrackReferenceForFrame <<  "\n";
             // cout << "mnLastFrameSeen: " << pNewMP->mnLastFrameSeen <<  "\n\n\n";
-            im = mpFrameDrawer->CustomDrawFrame(pNewMP);
+            im = mpFrameDrawer->CustomDrawFrame(vpMP);
         } else {
             im = mpFrameDrawer->DrawFrame();
 

@@ -41,7 +41,7 @@ class MapPoint
 public:
     MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);
     MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
-
+    MapPoint(const cv::Mat &Pos);
     void SetWorldPos(const cv::Mat &Pos);
     cv::Mat GetWorldPos();
 
