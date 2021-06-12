@@ -158,16 +158,6 @@ void DrawLine(cv::Mat &im, MapPoint* mp1, MapPoint* mp2, cv::Scalar color) {
 void DrawPlane(cv::Mat &im, MapPoint* mp1, MapPoint* mp2, MapPoint* mp3, cv::Scalar color) {
 
     if (mp1 > 0 && mp2 > 0 && mp3 > 0) {
-        // cv::Point2f pts[3];
-
-        // pts[0].x=mp1->mTrackProjX;
-        // pts[0].y=mp1->mTrackProjY;
-        // pts[1].x=mp2->mTrackProjX;
-        // pts[1].y=mp2->mTrackProjY;
-        // pts[2].x=mp3->mTrackProjX;
-        // pts[2].y=mp3->mTrackProjY;
-        // const cv::Point2f * points[] = { pts[0] };
-        // cv::fillPoly(im, points, color);
         cv::Point rook_points[1][3];
         rook_points[0][0] = cv::Point( mp1->mTrackProjX, mp1->mTrackProjY );
         rook_points[0][1] = cv::Point( mp2->mTrackProjX, mp2->mTrackProjY );
@@ -178,8 +168,6 @@ void DrawPlane(cv::Mat &im, MapPoint* mp1, MapPoint* mp2, MapPoint* mp3, cv::Sca
         cv::fillPoly( im, ppt, npt, 1, color, 8 );
     }
 }
-
-
 
 cv::Mat FrameDrawer::CustomDrawFrame(vector<MapPoint *> vpMP)
 {
@@ -197,35 +185,36 @@ cv::Mat FrameDrawer::CustomDrawFrame(vector<MapPoint *> vpMP)
 
     } // destroy scoped mutex -> release mutex
 
+    int r = 5;
     if(im.channels()<3) //this should be always true
         cvtColor(im,im,CV_GRAY2BGR);
-    // const int n = vpMP.size();
-    // for(int i=0;i<n;i++)
-    // {
-    //     cv::Point2f pt1,pt2, center;
-    //     pt1.x=vpMP[i]->mTrackProjX-r;
-    //     pt1.y=vpMP[i]->mTrackProjY-r;
-    //     pt2.x=vpMP[i]->mTrackProjX+r;
-    //     pt2.y=vpMP[i]->mTrackProjY+r;
-    //     center.x=vpMP[i]->mTrackProjX;
-    //     center.y=vpMP[i]->mTrackProjY;
-    //     if(vpMP[i]->mbTrackInView) {
-    //         cv::rectangle(im,pt1,pt2,cv::Scalar(0,0,255));
-    //         cv::circle(im,center,2,cv::Scalar(0,0,255),-1);
-    //         cv::putText(im, to_string(vpMP[i]->mnId), pt1, 1, 1.0,cv::Scalar(0,0,0));
-    //     }
-    // }  
-    // DrawLine(im, vpMP[3], vpMP[0], cv::Scalar(0,0,255));
-    // DrawLine(im, vpMP[3], vpMP[1], cv::Scalar(0,255,0));
-    // DrawLine(im, vpMP[3], vpMP[2], cv::Scalar(255,0,0));
-    // DrawLine(im, vpMP[0], vpMP[1], cv::Scalar(0,0,0));
-    // DrawLine(im, vpMP[1], vpMP[2], cv::Scalar(0,0,0));
-    // DrawLine(im, vpMP[2], vpMP[0], cv::Scalar(0,0,0));
+    const int n = vpMP.size();
+    for(int i=0;i<n;i++)
+    {
+        cv::Point2f pt1,pt2, center;
+        pt1.x=vpMP[i]->mTrackProjX-r;
+        pt1.y=vpMP[i]->mTrackProjY-r;
+        pt2.x=vpMP[i]->mTrackProjX+r;
+        pt2.y=vpMP[i]->mTrackProjY+r;
+        center.x=vpMP[i]->mTrackProjX;
+        center.y=vpMP[i]->mTrackProjY;
+        if(vpMP[i]->mbTrackInView) {
+            cv::rectangle(im,pt1,pt2,cv::Scalar(0,0,255));
+            cv::circle(im,center,2,cv::Scalar(0,0,255),-1);
+            cv::putText(im, to_string(vpMP[i]->mnId), pt1, 1, 1.0,cv::Scalar(0,0,0));
+        }
+    }  
+    DrawLine(im, vpMP[3], vpMP[0], cv::Scalar(0,0,255));
+    DrawLine(im, vpMP[3], vpMP[1], cv::Scalar(0,255,0));
+    DrawLine(im, vpMP[3], vpMP[2], cv::Scalar(255,0,0));
+    DrawLine(im, vpMP[0], vpMP[1], cv::Scalar(0,0,0));
+    DrawLine(im, vpMP[1], vpMP[2], cv::Scalar(0,0,0));
+    DrawLine(im, vpMP[2], vpMP[0], cv::Scalar(0,0,0));
 
-    DrawPlane(im, vpMP[0], vpMP[1], vpMP[2], cv::Scalar(0,0,150));
-    DrawPlane(im, vpMP[0], vpMP[1], vpMP[3], cv::Scalar(0,150,0));
-    DrawPlane(im, vpMP[0], vpMP[2], vpMP[3], cv::Scalar(150,0,0));
-    DrawPlane(im, vpMP[1], vpMP[2], vpMP[3], cv::Scalar(0,150,150));
+    // DrawPlane(im, vpMP[0], vpMP[1], vpMP[2], cv::Scalar(0,0,150));
+    // DrawPlane(im, vpMP[0], vpMP[1], vpMP[3], cv::Scalar(0,150,0));
+    // DrawPlane(im, vpMP[0], vpMP[2], vpMP[3], cv::Scalar(150,0,0));
+    // DrawPlane(im, vpMP[1], vpMP[2], vpMP[3], cv::Scalar(0,150,150));
 
     cv::Mat imWithInfo;
     DrawTextInfo(im,state, imWithInfo);
